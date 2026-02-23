@@ -39,13 +39,15 @@ func New(devices []Device, savePath string) *Backend {
 	}
 }
 
-// Connect queries the actual power state from all devices and marks the backend connected.
+// Connect marks the backend connected and kicks off a background state refresh.
 func (b *Backend) Connect() error {
-	b.queryAllDeviceStates()
 	b.mu.Lock()
 	b.connected = true
 	b.mu.Unlock()
-	b.save()
+	go func() {
+		b.queryAllDeviceStates()
+		b.save()
+	}()
 	return nil
 }
 
@@ -202,29 +204,36 @@ func (b *Backend) Devices() []Device {
 	return cp
 }
 
-// queryAllDeviceStates fetches live power state from each Mi device.
+// queryAllDeviceStates fetches live power state from all Mi devices in parallel.
 func (b *Backend) queryAllDeviceStates() {
 	log.Println("[mi] querying device states...")
 	b.mu.RLock()
 	devices := make([]Device, len(b.devices))
 	copy(devices, b.devices)
 	b.mu.RUnlock()
+
+	var wg sync.WaitGroup
 	for i := range devices {
-		state, err := miQueryPower(int32(i), devices)
-		if err != nil {
-			log.Printf("[mi] warning: device %d query failed: %v (keeping cached value)", i, err)
-			continue
-		}
-		b.mu.Lock()
-		if state {
-			b.devices[i].Value = 1
-		} else {
-			b.devices[i].Value = 0
-		}
-		b.mu.Unlock()
-		log.Printf("[mi] device %d (%s): %v", i, b.devices[i].Name, state)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			state, err := miQueryPower(int32(i), devices)
+			if err != nil {
+				log.Printf("[mi] warning: device %d query failed: %v (keeping cached value)", i, err)
+				return
+			}
+			b.mu.Lock()
+			if state {
+				b.devices[i].Value = 1
+			} else {
+				b.devices[i].Value = 0
+			}
+			name := b.devices[i].Name
+			b.mu.Unlock()
+			log.Printf("[mi] device %d (%s): %v", i, name, state)
+		}(i)
 	}
-	b.save()
+	wg.Wait()
 	log.Println("[mi] device state query complete")
 }
 

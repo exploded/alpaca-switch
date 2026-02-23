@@ -6,6 +6,7 @@
             "token": "your32hexcharactertoken00000000",
             "name": "Switch 1",
             "customname": "My Plug",
+            "description": "12V dew heater power",
             "min": 0,
             "max": 1,
             "step": 1,
@@ -19,6 +20,7 @@
             "username": "admin",
             "password": "yourpassword",
             "name": "Backyard IR",
+            "description": "Backyard IR illuminator",
             "uniqueid": "00000000-0000-0000-0000-000000000001",
             "value": 0
         }

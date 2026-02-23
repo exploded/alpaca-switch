@@ -95,7 +95,8 @@ The driver listens on port **11111** (standard ASCOM Alpaca port) and responds t
 | `ip` | Device IP address |
 | `token` | 32-character hex authentication token |
 | `name` | Default device name |
-| `customname` | Display name shown in NINA (overrides `name` if set) |
+| `customname` | Title shown in NINA (overrides `name` if set) |
+| `description` | Subtitle shown in NINA (optional; falls back to `customname` or `name`) |
 | `min` / `max` / `step` | Value range (0/1/1 for on/off switches) |
 | `canwrite` | `false` to make the switch read-only in NINA |
 | `value` | Cached last-known state (0=off, 1=on) |
@@ -107,7 +108,8 @@ The driver listens on port **11111** (standard ASCOM Alpaca port) and responds t
 | `host` | Camera IP address, optionally with port: `"192.168.1.4"` or `"192.168.1.3:65005"` |
 | `username` | Camera admin username (usually `admin`) |
 | `password` | Camera password |
-| `name` | Display name shown in NINA |
+| `name` | Title shown in NINA |
+| `description` | Subtitle shown in NINA (optional; falls back to `"<name> IR illuminator"`) |
 | `uniqueid` | Stable UUID for the ASCOM device (any unique value, e.g. `"00000000-0000-0000-0000-000000000001"`) |
 | `value` | Cached last-known IR state (0=off, 1=on) |
 

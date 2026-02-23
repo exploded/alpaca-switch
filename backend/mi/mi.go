@@ -11,15 +11,16 @@ import (
 
 // Device holds configuration and state for one Mi smart plug.
 type Device struct {
-	IP         string `json:"ip"`
-	Token      string `json:"token"`
-	Name       string `json:"name"`
-	Customname string `json:"customname"`
-	Min        int64  `json:"min"`
-	Max        int64  `json:"max"`
-	Step       int64  `json:"step"`
-	Canwrite   bool   `json:"canwrite"`
-	Value      int64  `json:"value"`
+	IP          string `json:"ip"`
+	Token       string `json:"token"`
+	Name        string `json:"name"`
+	Customname  string `json:"customname"`
+	Description string `json:"description"`
+	Min         int64  `json:"min"`
+	Max         int64  `json:"max"`
+	Step        int64  `json:"step"`
+	Canwrite    bool   `json:"canwrite"`
+	Value       int64  `json:"value"`
 }
 
 // Backend implements backend.SwitchBackend for Xiaomi Mi smart plugs.
@@ -100,9 +101,21 @@ func (b *Backend) SetName(id int, name string) error {
 	return nil
 }
 
-// GetDescription returns a description for device id.
+// GetDescription returns the description for device id.
+// If no description is set in config, falls back to the device name.
 func (b *Backend) GetDescription(id int) string {
-	return b.GetName(id)
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if id < 0 || id >= len(b.devices) {
+		return ""
+	}
+	if b.devices[id].Description != "" {
+		return b.devices[id].Description
+	}
+	if b.devices[id].Customname != "" {
+		return b.devices[id].Customname
+	}
+	return b.devices[id].Name
 }
 
 // GetCanWrite reports whether device id is writable.

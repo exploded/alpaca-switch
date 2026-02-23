@@ -23,12 +23,13 @@ import (
 
 // CameraConfig holds connection details and cached state for one Hikvision camera.
 type CameraConfig struct {
-	Host     string  `json:"host"`
-	Username string  `json:"username"`
-	Password string  `json:"password"`
-	Name     string  `json:"name"`
-	UniqueID string  `json:"uniqueid"`
-	Value    float64 `json:"value"` // cached last-known state: 0=off, 1=on
+	Host        string  `json:"host"`
+	Username    string  `json:"username"`
+	Password    string  `json:"password"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	UniqueID    string  `json:"uniqueid"`
+	Value       float64 `json:"value"` // cached last-known state: 0=off, 1=on
 }
 
 // camera is the runtime representation of one camera switch.
@@ -126,9 +127,18 @@ func (b *Backend) SetName(id int, name string) error {
 	return nil
 }
 
-// GetDescription returns a description for switch id.
+// GetDescription returns the description for switch id.
+// If no description is set in config, falls back to "<name> IR illuminator".
 func (b *Backend) GetDescription(id int) string {
-	return fmt.Sprintf("%s IR illuminator", b.GetName(id))
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if id < 0 || id >= len(b.cameras) {
+		return ""
+	}
+	if b.cameras[id].cfg.Description != "" {
+		return b.cameras[id].cfg.Description
+	}
+	return fmt.Sprintf("%s IR illuminator", b.cameras[id].cfg.Name)
 }
 
 // GetCanWrite always returns true — IR illuminators are always writable.

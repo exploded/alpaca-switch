@@ -14,7 +14,6 @@ type Device struct {
 	IP          string `json:"ip"`
 	Token       string `json:"token"`
 	Name        string `json:"name"`
-	Customname  string `json:"customname"`
 	Description string `json:"description"`
 	Min         int64  `json:"min"`
 	Max         int64  `json:"max"`
@@ -76,33 +75,30 @@ func (b *Backend) NumSwitches() int {
 	return len(b.devices)
 }
 
-// GetName returns the custom name if set, otherwise the default name.
+// GetName returns the device name.
 func (b *Backend) GetName(id int) string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if id < 0 || id >= len(b.devices) {
 		return ""
 	}
-	if b.devices[id].Customname != "" {
-		return b.devices[id].Customname
-	}
 	return b.devices[id].Name
 }
 
-// SetName sets the custom name for device id.
+// SetName sets the name for device id.
 func (b *Backend) SetName(id int, name string) error {
 	if id < 0 || id >= len(b.devices) {
 		return fmt.Errorf("invalid device id %d", id)
 	}
 	b.mu.Lock()
-	b.devices[id].Customname = name
+	b.devices[id].Name = name
 	b.mu.Unlock()
 	b.save()
 	return nil
 }
 
 // GetDescription returns the description for device id.
-// If no description is set in config, falls back to the device name.
+// Falls back to the device name if no description is set.
 func (b *Backend) GetDescription(id int) string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -111,9 +107,6 @@ func (b *Backend) GetDescription(id int) string {
 	}
 	if b.devices[id].Description != "" {
 		return b.devices[id].Description
-	}
-	if b.devices[id].Customname != "" {
-		return b.devices[id].Customname
 	}
 	return b.devices[id].Name
 }

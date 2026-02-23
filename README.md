@@ -32,8 +32,8 @@ Copy `config/settings.json.example` to `config/settings.json` and fill in your d
         {
             "ip": "192.168.1.100",
             "token": "your32hexcharactertoken00000000",
-            "name": "Switch 1",
-            "customname": "12V Power",
+            "name": "12V Power",
+            "description": "12V dew heater power",
             "min": 0,
             "max": 1,
             "step": 1,
@@ -94,9 +94,8 @@ The driver listens on port **11111** (standard ASCOM Alpaca port) and responds t
 |-------|-------------|
 | `ip` | Device IP address |
 | `token` | 32-character hex authentication token |
-| `name` | Default device name |
-| `customname` | Title shown in NINA (overrides `name` if set) |
-| `description` | Subtitle shown in NINA (optional; falls back to `customname` or `name`) |
+| `name` | Title shown in NINA |
+| `description` | Subtitle shown in NINA (optional; falls back to `name`) |
 | `min` / `max` / `step` | Value range (0/1/1 for on/off switches) |
 | `canwrite` | `false` to make the switch read-only in NINA |
 | `value` | Cached last-known state (0=off, 1=on) |
@@ -147,7 +146,7 @@ alpaca-switch/
 
 - `config/settings.json` is excluded from git because it contains device tokens and camera passwords. Commit `settings.json.example` instead.
 - Hikvision IR state is read live from the camera each time NINA polls `GetSwitch`.
-- Xiaomi plug state is read live on `Connect` and cached; updates are sent on each `SetSwitch`.
+- Xiaomi plug state is refreshed on `Connect` and cached; updates are sent on each `SetSwitch`.
 - Discovery binds to the primary outbound network interface to avoid NINA discovering the driver multiple times on multi-adapter machines.
 
 ## References

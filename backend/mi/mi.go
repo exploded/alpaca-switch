@@ -24,18 +24,20 @@ type Device struct {
 
 // Backend implements backend.SwitchBackend for Xiaomi Mi smart plugs.
 type Backend struct {
-	mu        sync.RWMutex
-	devices   []Device
-	connected bool
-	savePath  string
+	mu         sync.RWMutex
+	devices    []Device
+	connected  bool
+	savePath   string
+	deviceLock []sync.Mutex // per-device operation lock
 }
 
 // New creates a Mi backend from a slice of device configs.
 // savePath is the JSON file to persist state to (may be empty to skip persistence).
 func New(devices []Device, savePath string) *Backend {
 	return &Backend{
-		devices:  devices,
-		savePath: savePath,
+		devices:    devices,
+		savePath:   savePath,
+		deviceLock: make([]sync.Mutex, len(devices)),
 	}
 }
 
@@ -167,10 +169,15 @@ func (b *Backend) GetSwitchValue(id int) (float64, error) {
 }
 
 // SetSwitch turns device id on or off.
+// A per-device lock ensures rapid successive calls are serialised so that
+// the second command always uses a fresh discovery stamp from the device.
 func (b *Backend) SetSwitch(id int, state bool) error {
 	if id < 0 || id >= len(b.devices) {
 		return fmt.Errorf("invalid device id %d", id)
 	}
+	b.deviceLock[id].Lock()
+	defer b.deviceLock[id].Unlock()
+
 	b.mu.RLock()
 	devices := make([]Device, len(b.devices))
 	copy(devices, b.devices)

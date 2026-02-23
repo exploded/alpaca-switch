@@ -6,8 +6,8 @@ Currently supports two backends, all visible as numbered switches inside one ASC
 
 | Backend | Hardware | Protocol |
 |---------|----------|----------|
-| **Xiaomi Mi** | Mi Smart Plug (Wi-Fi power switches) | Xiaomi UDP protocol, AES-CBC encryption |
-| **Hikvision** | IP camera IR illuminators | Hikvision ISAPI over HTTP, Digest auth |
+| **Xiaomi Mi** ![Xiaomi Wi-Fi Switch](xiaomi-wifi-switch.jpg) | Mi Smart Plug (Wi-Fi power switches) | Xiaomi UDP protocol, AES-CBC encryption |
+| **Hikvision** ![Hikvision Camera](hikvision-camera.jpg) | IP camera IR illuminators | Hikvision ISAPI over HTTP, Digest auth |
 
 Switch IDs are assigned in the order backends are listed: Mi plugs first (IDs 0–N), then Hikvision cameras (IDs N+1–M).
 

@@ -1,0 +1,79 @@
+{
+    "alpaca_port": 11111,
+    "mi_devices": [
+        {
+            "ip": "192.168.1.171",
+            "token": "3cb8e0b83d1d31a7a548ad5d8a7c7fe1",
+            "name": "Switch 1",
+            "customname": "12V",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": true,
+            "value": 0
+        },
+        {
+            "ip": "192.168.1.172",
+            "token": "8d4e03763dcdc187629b5f6d958e9141",
+            "name": "Switch 2",
+            "customname": "PME",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": true,
+            "value": 0
+        },
+        {
+            "ip": "192.168.1.173",
+            "token": "993324a8180431cc927ddfc1b7e1b0d3",
+            "name": "Switch 3",
+            "customname": "Light",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": true,
+            "value": 0
+        },
+        {
+            "ip": "192.168.1.174",
+            "token": "cff00b34fef98fa8f5e19cb5eadaf8a2",
+            "name": "Switch 4",
+            "customname": "NUC",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": false,
+            "value": 0
+        },
+        {
+            "ip": "192.168.1.175",
+            "token": "917a7b11b5aaf25afb6254c6a3d26ab0",
+            "name": "Switch 5",
+            "customname": "XPS",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": true,
+            "value": 0
+        },
+        {
+            "ip": "192.168.1.176",
+            "token": "c1fb022172579fd8d39ebdc20ceab91c",
+            "name": "Switch 6",
+            "customname": "NAS",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": false,
+            "value": 0
+        }
+    ],
+    "hikvision_cameras": [
+        {
+            "host": "192.168.1.x",
+            "username": "admin",
+            "password": "your-camera-password",
+            "name": "IR Light"
+        }
+    ]
+}

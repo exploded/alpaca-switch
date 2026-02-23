@@ -1,6 +1,12 @@
 // Package hikvision implements a SwitchBackend for Hikvision IP camera IR illuminators.
 // Each CameraConfig entry becomes one switch (on = IR enabled, off = IR disabled).
 // Hardware communication uses the Hikvision ISAPI over HTTP with Digest authentication.
+//
+// Camera requirements:
+//   - Configuration → System → Maintenance → System Service → Hardware must be enabled
+//   - Tested on: DS-2CD2343G0-I, DS-2CD2335-I
+//
+// Host field supports an optional port, e.g. "192.168.1.3:65005".
 package hikvision
 
 import (
@@ -15,20 +21,20 @@ import (
 	"github.com/icholy/digest"
 )
 
-// CameraConfig holds connection details for one Hikvision camera.
+// CameraConfig holds connection details and cached state for one Hikvision camera.
 type CameraConfig struct {
-	Host     string `json:"host"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
+	Host     string  `json:"host"`
+	Username string  `json:"username"`
+	Password string  `json:"password"`
+	Name     string  `json:"name"`
+	UniqueID string  `json:"uniqueid"`
+	Value    float64 `json:"value"` // cached last-known state: 0=off, 1=on
 }
 
 // camera is the runtime representation of one camera switch.
 type camera struct {
-	cfg        CameraConfig
-	customName string
-	client     *http.Client
-	state      bool // cached state
+	cfg    CameraConfig
+	client *http.Client
 }
 
 // Backend implements backend.SwitchBackend for Hikvision IR switches.
@@ -55,12 +61,11 @@ func New(cfgs []CameraConfig) *Backend {
 	return &Backend{cameras: cams}
 }
 
-// Connect queries current IR state from all cameras.
+// Connect queries current IR state from all cameras and marks the backend connected.
 func (b *Backend) Connect() error {
 	b.mu.Lock()
 	b.connected = true
 	b.mu.Unlock()
-	// Best-effort: query initial state from each camera
 	for i, cam := range b.cameras {
 		on, err := cam.getIRLight()
 		if err != nil {
@@ -68,7 +73,11 @@ func (b *Backend) Connect() error {
 			continue
 		}
 		b.mu.Lock()
-		b.cameras[i].state = on
+		if on {
+			b.cameras[i].cfg.Value = 1
+		} else {
+			b.cameras[i].cfg.Value = 0
+		}
 		b.mu.Unlock()
 		log.Printf("[hikvision] camera %d (%s) IR: %v", i, cam.cfg.Name, on)
 	}
@@ -103,19 +112,16 @@ func (b *Backend) GetName(id int) string {
 	if id < 0 || id >= len(b.cameras) {
 		return ""
 	}
-	if b.cameras[id].customName != "" {
-		return b.cameras[id].customName
-	}
 	return b.cameras[id].cfg.Name
 }
 
-// SetName sets a custom name for switch id.
+// SetName sets a custom name for switch id (persisted via the config layer).
 func (b *Backend) SetName(id int, name string) error {
 	if id < 0 || id >= len(b.cameras) {
 		return fmt.Errorf("invalid camera id %d", id)
 	}
 	b.mu.Lock()
-	b.cameras[id].customName = name
+	b.cameras[id].cfg.Name = name
 	b.mu.Unlock()
 	return nil
 }
@@ -125,38 +131,52 @@ func (b *Backend) GetDescription(id int) string {
 	return fmt.Sprintf("%s IR illuminator", b.GetName(id))
 }
 
-// GetCanWrite reports whether switch id is writable (always true for IR).
-func (b *Backend) GetCanWrite(id int) bool { return true }
+// GetCanWrite always returns true — IR illuminators are always writable.
+func (b *Backend) GetCanWrite(_ int) bool { return true }
 
 // GetMin returns the minimum value (0 = off).
-func (b *Backend) GetMin(id int) float64 { return 0 }
+func (b *Backend) GetMin(_ int) float64 { return 0 }
 
 // GetMax returns the maximum value (1 = on).
-func (b *Backend) GetMax(id int) float64 { return 1 }
+func (b *Backend) GetMax(_ int) float64 { return 1 }
 
 // GetStep returns the step size (1).
-func (b *Backend) GetStep(id int) float64 { return 1 }
+func (b *Backend) GetStep(_ int) float64 { return 1 }
 
-// GetSwitch returns the cached on/off state of switch id.
+// GetSwitch queries the live IR state from the camera. The result is also
+// cached in cfg.Value so GetSwitchValue stays consistent.
 func (b *Backend) GetSwitch(id int) (bool, error) {
+	b.mu.RLock()
+	if id < 0 || id >= len(b.cameras) {
+		b.mu.RUnlock()
+		return false, fmt.Errorf("invalid camera id %d", id)
+	}
+	cam := b.cameras[id]
+	b.mu.RUnlock()
+
+	on, err := cam.getIRLight()
+	if err != nil {
+		return false, err
+	}
+	// Update cached value
+	b.mu.Lock()
+	if on {
+		b.cameras[id].cfg.Value = 1
+	} else {
+		b.cameras[id].cfg.Value = 0
+	}
+	b.mu.Unlock()
+	return on, nil
+}
+
+// GetSwitchValue returns the cached numeric value (0.0 or 1.0).
+func (b *Backend) GetSwitchValue(id int) (float64, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if id < 0 || id >= len(b.cameras) {
-		return false, fmt.Errorf("invalid camera id %d", id)
+		return 0, fmt.Errorf("invalid camera id %d", id)
 	}
-	return b.cameras[id].state, nil
-}
-
-// GetSwitchValue returns the numeric value of switch id (0.0 or 1.0).
-func (b *Backend) GetSwitchValue(id int) (float64, error) {
-	on, err := b.GetSwitch(id)
-	if err != nil {
-		return 0, err
-	}
-	if on {
-		return 1, nil
-	}
-	return 0, nil
+	return b.cameras[id].cfg.Value, nil
 }
 
 // SetSwitch turns the IR illuminator for switch id on or off.
@@ -173,15 +193,30 @@ func (b *Backend) SetSwitch(id int, state bool) error {
 		return err
 	}
 	b.mu.Lock()
-	b.cameras[id].state = state
+	if state {
+		b.cameras[id].cfg.Value = 1
+	} else {
+		b.cameras[id].cfg.Value = 0
+	}
 	b.mu.Unlock()
 	log.Printf("[hikvision] camera %d (%s) IR set to %v", id, cam.cfg.Name, state)
 	return nil
 }
 
-// SetSwitchValue sets the IR illuminator by numeric value.
+// SetSwitchValue sets the IR illuminator by numeric value (0 = off, non-zero = on).
 func (b *Backend) SetSwitchValue(id int, value float64) error {
 	return b.SetSwitch(id, value != 0)
+}
+
+// Configs returns a snapshot of all camera configs (for config persistence).
+func (b *Backend) Configs() []CameraConfig {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	out := make([]CameraConfig, len(b.cameras))
+	for i, c := range b.cameras {
+		out[i] = c.cfg
+	}
+	return out
 }
 
 // ---------- low-level ISAPI calls ----------

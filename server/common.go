@@ -63,7 +63,7 @@ func (s *Server) handleSetConnected(w http.ResponseWriter, r *http.Request, _ ht
 }
 
 func (s *Server) handleDeviceDescription(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	resp := stringResponse{Value: "Unified Alpaca Switch Controller (Mi + Hikvision)"}
+	resp := stringResponse{Value: serverName + " — controls Xiaomi Mi smart plugs and Hikvision IR cameras via ASCOM Alpaca"}
 	s.prepareResponse(r, &resp.alpacaResponse)
 	s.sendJSON(w, http.StatusOK, resp)
 }

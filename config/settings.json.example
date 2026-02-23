@@ -1,0 +1,26 @@
+{
+    "alpaca_port": 11111,
+    "mi_devices": [
+        {
+            "ip": "192.168.1.100",
+            "token": "your32hexcharactertoken00000000",
+            "name": "Switch 1",
+            "customname": "My Plug",
+            "min": 0,
+            "max": 1,
+            "step": 1,
+            "canwrite": true,
+            "value": 0
+        }
+    ],
+    "hikvision_cameras": [
+        {
+            "host": "192.168.1.4",
+            "username": "admin",
+            "password": "yourpassword",
+            "name": "Backyard IR",
+            "uniqueid": "00000000-0000-0000-0000-000000000001",
+            "value": 0
+        }
+    ]
+}

@@ -2,7 +2,7 @@
 
 Unified ASCOM Alpaca Switch driver that exposes multiple hardware backends as a single Switch device to astronomy software such as N.I.N.A.
 
-Currently supports two backends, all visible as numbered switches inside one ASCOM device:
+Currently supports two backends, all visible as numbered switches inside one ASCOM device. Mi switches to turn devices on and off and Hikvision cameras to turn off IR lights to prevent stray lights for astrophotography.
 
 | Backend | Hardware | Protocol |
 |---------|----------|----------|
@@ -47,6 +47,7 @@ Copy `config/settings.json.example` to `config/settings.json` and fill in your d
             "username": "admin",
             "password": "yourpassword",
             "name": "Backyard IR",
+            "description": "Control IR light on backyard security camera",
             "uniqueid": "00000000-0000-0000-0000-000000000001",
             "value": 0
         }
@@ -73,10 +74,9 @@ The driver listens on port **11111** (standard ASCOM Alpaca port) and responds t
 ### 4. Connect from N.I.N.A.
 
 1. Open N.I.N.A. → Equipment → Switch
-2. Select **ASCOM Alpaca** from the driver list
-3. Click **Discover** (or enter Host `localhost` and Port `11111` manually)
-4. Select **Alpaca Switch Controller** from the list
-5. Click **Connect** — all switches appear by name
+2. Click the **Scan for devices** 
+3. In the dropdown list under the sub heading **ASCOM Alpaca** select the **Alpaca Switch Controller** item
+4. Click **Connect** — all switches appear by name
 
 ## Configuration reference
 

@@ -125,7 +125,7 @@ func discoverDevice(ipAddress string) ([]byte, []byte, error) {
 	return buf[8:12], buf[12:16], nil
 }
 
-// setPower sends a set_power command to ipAddress.
+// setPower sends a set_power command to ipAddress and waits for confirmation.
 func setPower(ipAddress string, token, deviceID, stamp []byte, powerOn bool) error {
 	state := "off"
 	if powerOn {
@@ -151,13 +151,42 @@ func setPower(ipAddress string, token, deviceID, stamp []byte, powerOn bool) err
 		return err
 	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	if _, err = conn.Write(packet); err != nil {
 		return err
 	}
-	// Response is optional; ignore timeout
 	buf := make([]byte, 1024)
-	_, _ = conn.Read(buf)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return fmt.Errorf("no confirmation from device: %w", err)
+	}
+	if n < 32 {
+		return fmt.Errorf("confirmation response too short (%d bytes)", n)
+	}
+	decrypted, err := decryptPayload(buf[32:n], token)
+	if err != nil {
+		return fmt.Errorf("decrypting confirmation: %w", err)
+	}
+	// Check for device-level error: {"error":{"code":-10000,"message":"..."}}
+	var errResp struct {
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(decrypted, &errResp) == nil && errResp.Error != nil {
+		return fmt.Errorf("device error %d: %s", errResp.Error.Code, errResp.Error.Message)
+	}
+	// Expect: {"result":["ok"],"id":1}
+	var okResp struct {
+		Result []string `json:"result"`
+	}
+	if err := json.Unmarshal(decrypted, &okResp); err != nil {
+		return fmt.Errorf("parsing confirmation: %w", err)
+	}
+	if len(okResp.Result) == 0 || okResp.Result[0] != "ok" {
+		return fmt.Errorf("unexpected confirmation: %s", string(decrypted))
+	}
 	return nil
 }
 

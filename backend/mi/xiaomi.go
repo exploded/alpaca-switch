@@ -105,12 +105,12 @@ func discoverDevice(ipAddress string) ([]byte, []byte, error) {
 	for i := 4; i < 32; i++ {
 		hello[i] = 0xFF
 	}
-	conn, err := net.DialTimeout("udp", fmt.Sprintf("%s:54321", ipAddress), 5*time.Second)
+	conn, err := net.DialTimeout("udp", fmt.Sprintf("%s:54321", ipAddress), 2*time.Second)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	conn.SetDeadline(time.Now().Add(2 * time.Second))
 	if _, err = conn.Write(hello); err != nil {
 		return nil, nil, err
 	}

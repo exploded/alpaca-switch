@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"alpaca-switch/backend"
@@ -53,18 +54,7 @@ func (s *Server) sendJSON(w http.ResponseWriter, status int, v interface{}) {
 // ---------- request helpers ----------
 
 func getClientID(r *http.Request) int {
-	var v string
-	if r.Method == http.MethodGet {
-		v = r.URL.Query().Get("ClientID")
-		if v == "" {
-			v = r.URL.Query().Get("clientid")
-		}
-	} else {
-		v = r.PostFormValue("ClientID")
-		if v == "" {
-			v = r.PostFormValue("clientid")
-		}
-	}
+	v := getParamAnyCase(r, "ClientID")
 	if v == "" {
 		return -1
 	}
@@ -76,18 +66,7 @@ func getClientID(r *http.Request) int {
 }
 
 func getClientTransactionID(r *http.Request) int {
-	var v string
-	if r.Method == http.MethodGet {
-		v = r.URL.Query().Get("ClientTransactionID")
-		if v == "" {
-			v = r.URL.Query().Get("clienttransactionid")
-		}
-	} else {
-		v = r.PostFormValue("ClientTransactionID")
-		if v == "" {
-			v = r.PostFormValue("clienttransactionid")
-		}
-	}
+	v := getParamAnyCase(r, "ClientTransactionID")
 	if v == "" {
 		return 0
 	}
@@ -99,12 +78,7 @@ func getClientTransactionID(r *http.Request) int {
 }
 
 func getSwitchID(r *http.Request) (int, error) {
-	var v string
-	if r.Method == http.MethodGet {
-		v = r.URL.Query().Get("Id")
-	} else {
-		v = r.PostFormValue("Id")
-	}
+	v := getParamAnyCase(r, "Id")
 	if v == "" {
 		return -1, errors.New("Id parameter missing")
 	}
@@ -116,12 +90,7 @@ func getSwitchID(r *http.Request) (int, error) {
 }
 
 func getSwitchState(r *http.Request) (bool, error) {
-	var v string
-	if r.Method == http.MethodGet {
-		v = r.URL.Query().Get("State")
-	} else {
-		v = r.PostFormValue("State")
-	}
+	v := getParamAnyCase(r, "State")
 	if v == "" {
 		return false, errors.New("State parameter missing")
 	}
@@ -129,7 +98,7 @@ func getSwitchState(r *http.Request) (bool, error) {
 }
 
 func getSwitchName(r *http.Request) (string, error) {
-	v := r.PostFormValue("Name")
+	v := getParamAnyCase(r, "Name")
 	if v == "" {
 		return "", errors.New("Name parameter missing")
 	}
@@ -137,7 +106,7 @@ func getSwitchName(r *http.Request) (string, error) {
 }
 
 func getSwitchValue(r *http.Request) (float64, error) {
-	v := r.PostFormValue("Value")
+	v := getParamAnyCase(r, "Value")
 	if v == "" {
 		return 0, errors.New("Value parameter missing")
 	}
@@ -145,11 +114,46 @@ func getSwitchValue(r *http.Request) (float64, error) {
 }
 
 func getConnected(r *http.Request) (bool, error) {
-	v := r.PostFormValue("Connected")
+	v := getParamAnyCase(r, "Connected")
 	if v == "" {
 		return false, errors.New("Connected parameter missing")
 	}
 	return strconv.ParseBool(v)
+}
+
+func getParamAnyCase(r *http.Request, name string) string {
+	if r.Method == http.MethodGet {
+		return getQueryAnyCase(r, name)
+	}
+	return getFormAnyCase(r, name)
+}
+
+func getQueryAnyCase(r *http.Request, name string) string {
+	q := r.URL.Query()
+	if v := q.Get(name); v != "" {
+		return v
+	}
+	for k, values := range q {
+		if strings.EqualFold(k, name) && len(values) > 0 {
+			return values[0]
+		}
+	}
+	return ""
+}
+
+func getFormAnyCase(r *http.Request, name string) string {
+	if err := r.ParseForm(); err != nil {
+		return ""
+	}
+	if v := r.Form.Get(name); v != "" {
+		return v
+	}
+	for k, values := range r.Form {
+		if strings.EqualFold(k, name) && len(values) > 0 {
+			return values[0]
+		}
+	}
+	return ""
 }
 
 // handleNotSupported returns 400 for unsupported ASCOM actions.

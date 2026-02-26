@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/icholy/digest"
 )
@@ -45,6 +46,8 @@ type Backend struct {
 	connected bool
 }
 
+const cameraRequestTimeout = 3 * time.Second
+
 // New creates a Hikvision backend from a list of camera configs.
 func New(cfgs []CameraConfig) *Backend {
 	cams := make([]*camera, len(cfgs))
@@ -52,6 +55,7 @@ func New(cfgs []CameraConfig) *Backend {
 		cams[i] = &camera{
 			cfg: cfg,
 			client: &http.Client{
+				Timeout: cameraRequestTimeout,
 				Transport: &digest.Transport{
 					Username: cfg.Username,
 					Password: cfg.Password,
@@ -67,12 +71,21 @@ func (b *Backend) Connect() error {
 	b.mu.Lock()
 	b.connected = true
 	b.mu.Unlock()
+	go b.refreshStates()
+	return nil
+}
+
+func (b *Backend) refreshStates() {
+	okCount := 0
+	failCount := 0
 	for i, cam := range b.cameras {
 		on, err := cam.getIRLight()
 		if err != nil {
+			failCount++
 			log.Printf("[hikvision] warning: could not query camera %d (%s): %v", i, cam.cfg.Host, err)
 			continue
 		}
+		okCount++
 		b.mu.Lock()
 		if on {
 			b.cameras[i].cfg.Value = 1
@@ -80,9 +93,8 @@ func (b *Backend) Connect() error {
 			b.cameras[i].cfg.Value = 0
 		}
 		b.mu.Unlock()
-		log.Printf("[hikvision] camera %d (%s) IR: %v", i, cam.cfg.Name, on)
 	}
-	return nil
+	log.Printf("[hikvision] state refresh complete: %d ok, %d failed", okCount, failCount)
 }
 
 // Disconnect marks the backend disconnected.

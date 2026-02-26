@@ -13,12 +13,11 @@ import (
 // and responds with the given apiPort.
 //
 // NINA sends a discovery packet from every local network interface simultaneously,
-// which causes it to list the driver once per interface. We avoid this by:
+// which can cause duplicate listings. We reduce this by:
 //  1. Determining the machine's primary LAN IP (via outboundIP).
-//  2. Only responding to packets whose source IP is on the same /24 subnet as the
-//     LAN IP — this lets through NINA on the same LAN while ignoring packets that
-//     arrive via loopback (127.x) or WSL virtual adapters (172.x).
-//  3. Additionally deduplicating within a 2-second window as a safety net.
+//  2. Responding to loopback packets (for same-host clients) and packets on the
+//     same /24 subnet as the LAN IP.
+//  3. Deduplicating responses per source IP within a 2-second window.
 func StartDiscovery(listenPort, apiPort int) {
 	addr := fmt.Sprintf("0.0.0.0:%d", listenPort)
 	conn, err := net.ListenPacket("udp", addr)
@@ -50,9 +49,9 @@ func StartDiscovery(listenPort, apiPort int) {
 		srcUDP := src.(*net.UDPAddr)
 		srcIP := srcUDP.IP.String()
 
-		// Only respond to packets from the same /24 subnet as our LAN IP.
-		// This filters out loopback (127.x) and WSL virtual adapters (172.x).
-		if !sameSubnet24(srcIP, lanIP) {
+		// Respond to local loopback packets for same-host clients (e.g. NINA),
+		// and to packets from the same /24 subnet as our LAN IP.
+		if !isLoopbackIP(srcUDP.IP) && !sameSubnet24(srcIP, lanIP) {
 			log.Printf("Discovery: ignoring packet from %s (not on LAN subnet %s/24)", srcIP, lanIP)
 			continue
 		}
@@ -82,6 +81,10 @@ func sameSubnet24(ip, ref string) bool {
 		return false
 	}
 	return a[0] == b[0] && a[1] == b[1] && a[2] == b[2]
+}
+
+func isLoopbackIP(ip net.IP) bool {
+	return ip != nil && ip.IsLoopback()
 }
 
 // outboundIP returns the IP of the interface used for outbound traffic.

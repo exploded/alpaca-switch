@@ -6,7 +6,7 @@ Currently supports two backends, all visible as numbered switches inside one ASC
 
 | Backend | Hardware | Protocol |
 |---------|----------|----------|
-| **Xiaomi Mi** ![Xiaomi Wi-Fi Switch](xiaomi-wifi-switch.jpg) | Mi Smart Plug (Wi-Fi power switches) | Xiaomi UDP protocol, AES-CBC encryption |
+| **Xiaomi Mi** ![Xiaomi Wi-Fi Switch](xiaomi-wifi-switch.jpg) | Mi Smart Plug (Wi-Fi power switches) | Xiaomi UDP protocol, AES-CBC encryption ([protocol notes](docs/xiaomi-protocol.md)) |
 | **Hikvision** ![Hikvision Camera](hikvision-camera.jpg) | IP camera IR illuminators | Hikvision ISAPI over HTTP, Digest auth |
 
 Switch IDs are assigned in the order backends are listed: Mi plugs first (IDs 0–N), then Hikvision cameras (IDs N+1–M).
@@ -71,6 +71,17 @@ go build -o alpaca-switch.exe .
 
 The driver listens on port **11111** (standard ASCOM Alpaca port) and responds to ASCOM discovery broadcasts on UDP port **32227**.
 
+### Optional: standalone Mi CLI
+
+A small command-line tool is bundled for ad-hoc Mi plug control without launching NINA:
+
+```bash
+go build -o mi-switch.exe ./cmd/mi-switch
+./mi-switch.exe --host 192.168.1.171 --token <32-hex> --action on|off|status
+```
+
+It shares the protocol implementation with the ASCOM driver, so anything the server can do, the CLI can do.
+
 ### 4. Connect from N.I.N.A.
 
 1. Open N.I.N.A. → Equipment → Switch
@@ -121,9 +132,15 @@ alpaca-switch/
 │   ├── backend.go                 # SwitchBackend interface + Router (ID mapping)
 │   ├── mi/
 │   │   ├── mi.go                  # Xiaomi Mi plug state management
-│   │   └── xiaomi.go              # Xiaomi UDP protocol (AES-CBC encrypted)
+│   │   └── xiaomi.go              # Xiaomi UDP protocol (AES-CBC encrypted) - exports SetSwitch/GetSwitch
 │   └── hikvision/
 │       └── hikvision.go           # Hikvision ISAPI IR control (HTTP Digest auth)
+├── cmd/
+│   └── mi-switch/                 # Standalone CLI: mi-switch --host X --token Y --action on|off|status
+├── docs/
+│   └── xiaomi-protocol.md         # miio wire-protocol reference (packet layout, encryption, stamp)
+├── scripts/
+│   └── test-discovery.ps1         # Verify ASCOM Alpaca UDP discovery from a NINA host
 ├── server/
 │   ├── api.go                     # HTTP server, request helpers, response builder
 │   ├── discovery.go               # ASCOM Alpaca UDP discovery (port 32227)

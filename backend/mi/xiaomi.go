@@ -2,6 +2,7 @@ package mi
 
 // xiaomi.go implements the low-level Xiaomi Mi Smart Plug UDP protocol.
 // Packets use AES-CBC encryption with an MD5-derived key and IV.
+// See docs/xiaomi-protocol.md for protocol details.
 
 import (
 	"crypto/aes"
@@ -14,34 +15,28 @@ import (
 	"time"
 )
 
-// miOnOff turns device at index idx (0-based) on or off via the Xiaomi protocol.
-func miOnOff(idx int32, devices []Device, powerOn bool) error {
-	if idx < 0 || int(idx) >= len(devices) {
-		return fmt.Errorf("device index %d out of range", idx)
-	}
-	device := devices[idx]
-	token, err := hex.DecodeString(device.Token)
+// SetSwitch turns a Xiaomi Mi Smart Plug on or off.
+// host is the device IP (optionally with port, e.g. "192.168.1.171:54321");
+// token is a 32-character hex authentication string.
+func SetSwitch(host, token string, on bool) error {
+	tokenBytes, err := hex.DecodeString(token)
 	if err != nil {
 		return fmt.Errorf("decoding token: %w", err)
 	}
-	deviceID, stamp, err := discoverDevice(device.IP)
+	deviceID, stamp, err := discoverDevice(host)
 	if err != nil {
 		return fmt.Errorf("discovery: %w", err)
 	}
-	return setPower(device.IP, token, deviceID, stamp, powerOn)
+	return setPower(host, tokenBytes, deviceID, stamp, on)
 }
 
-// miQueryPower returns the live on/off state of device at index idx (0-based).
-func miQueryPower(idx int32, devices []Device) (bool, error) {
-	if idx < 0 || int(idx) >= len(devices) {
-		return false, fmt.Errorf("device index %d out of range", idx)
-	}
-	device := devices[idx]
-	token, err := hex.DecodeString(device.Token)
+// GetSwitch returns the live on/off state of a Xiaomi Mi Smart Plug.
+func GetSwitch(host, token string) (bool, error) {
+	tokenBytes, err := hex.DecodeString(token)
 	if err != nil {
 		return false, fmt.Errorf("decoding token: %w", err)
 	}
-	deviceID, stamp, err := discoverDevice(device.IP)
+	deviceID, stamp, err := discoverDevice(host)
 	if err != nil {
 		return false, fmt.Errorf("discovery: %w", err)
 	}
@@ -55,13 +50,13 @@ func miQueryPower(idx int32, devices []Device) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	encrypted, err := encryptPayload(jsonData, token)
+	encrypted, err := encryptPayload(jsonData, tokenBytes)
 	if err != nil {
 		return false, err
 	}
-	packet := buildPacket(token, deviceID, stamp, encrypted)
+	packet := buildPacket(tokenBytes, deviceID, stamp, encrypted)
 
-	conn, err := net.DialTimeout("udp", fmt.Sprintf("%s:54321", device.IP), 5*time.Second)
+	conn, err := net.DialTimeout("udp", fmt.Sprintf("%s:54321", host), 5*time.Second)
 	if err != nil {
 		return false, err
 	}
@@ -79,7 +74,7 @@ func miQueryPower(idx int32, devices []Device) (bool, error) {
 	if n < 32 {
 		return false, fmt.Errorf("response too short (%d bytes)", n)
 	}
-	decrypted, err := decryptPayload(buf[32:n], token)
+	decrypted, err := decryptPayload(buf[32:n], tokenBytes)
 	if err != nil {
 		return false, fmt.Errorf("decrypting response: %w", err)
 	}

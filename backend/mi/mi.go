@@ -185,10 +185,9 @@ func (b *Backend) SetSwitch(id int, state bool) error {
 	defer b.deviceLock[id].Unlock()
 
 	b.mu.RLock()
-	devices := make([]Device, len(b.devices))
-	copy(devices, b.devices)
+	host, token := b.devices[id].IP, b.devices[id].Token
 	b.mu.RUnlock()
-	if err := miOnOff(int32(id), devices, state); err != nil {
+	if err := SetSwitch(host, token, state); err != nil {
 		return err
 	}
 	b.mu.Lock()
@@ -230,7 +229,7 @@ func (b *Backend) queryAllDeviceStates() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			state, err := miQueryPower(int32(i), devices)
+			state, err := GetSwitch(devices[i].IP, devices[i].Token)
 			if err != nil {
 				log.Printf("[mi] warning: device %d query failed: %v (keeping cached value)", i, err)
 				return
